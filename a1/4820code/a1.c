@@ -289,9 +289,9 @@ void updateHumans() {
   int zVal;
 
   for (int i = 0; i < HUMAN_NUMBER; i++) {
-    xVal = humans[i][0];
-    yVal = humans[i][1];
-    zVal = humans[i][2];
+    xVal = (float)(humans[i][0]);
+    yVal = (float)(humans[i][1]);
+    zVal = (float)(humans[i][2]);
 
     if (world[xVal][yVal-1][zVal] == 0) {
       world[xVal][yVal+2][zVal] = 0;
@@ -421,7 +421,7 @@ float *la;
      float newX, newY, newZ;
      float oldX, oldY, oldZ;
      float accelerationMax = 4;
-     float decelerationFactor = 0.85;
+     float decelerationFactor = 0.8;
      float stoppingFactor = 0.004;
 
      newTime = clock();

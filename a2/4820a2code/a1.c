@@ -15,17 +15,30 @@
 #include "graphics.h"
 
 extern GLubyte  world[WORLDX][WORLDY][WORLDZ];
+extern float tubeData[TUBE_COUNT][6];
+extern int screenWidth;
+extern int screenHeight;
+extern int displayMap;
+extern float keyboardPressed;
+extern void toggleKeyboardPress();
 
 /* Kevins changes */
 typedef int bool;
 #define true 1
 #define false 0
 #define HUMAN_NUMBER 4
-#define BEAM_SIZE 5
+#define TUBE_SIZE 3
+#define TUBE_LIFE 70
+#define SEGMENTS 15
+#define MAP_BORDER_SIZE 2
+
+
 clock_t newTime, oldTime;
 int humans[HUMAN_NUMBER][3];
-
-
+int tubeMovement[TUBE_COUNT];
+int tubeHit[TUBE_COUNT];
+float acceleration = 1;
+float distX=0, distY=0, distZ=0;
 
 void goBack(float x, float y, float z);
 void optimizeGround(int groundArray[100][100]);
@@ -109,7 +122,6 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
     /********* end of extern variable declarations **************/
 
-
     /*** collisionResponse() ***/
     /* -performs collision detection and response */
     /*  sets new xyz  to position of the viewpoint after collision */
@@ -119,8 +131,8 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
     void collisionResponse() {
       float x, y, z;
       int xVal, yVal, zVal;
-      float maxClose = 0.9;
-      float minClose = 0.1;
+      float minClose = 0.16;
+      float maxClose = 1 - minClose;
       getViewPosition(&x, &y, &z);
 
       x = (x * -1);
@@ -185,6 +197,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       // printf("Position [%f, %f] = %f\n", (x* -1), (z* -1), (y* -1));
       getOldViewPosition(&x, &y, &z);
       setViewPosition(x, y, z);
+      distX=distY=distZ=0;
       // printf("Position [%f, %f] = %f\n", (x* -1), (z* -1), (y* -1));
     }
 
@@ -287,9 +300,179 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         }
     }
 
-    /*  updateHumans()
-        Description: Updates the Humans position
 
+
+    void drawPlayer(int mapWidth, int mapHeight, int mapPadding) {
+      float xVal, yVal, zVal, xOrn, yOrn, zOrn;
+      float xVector, zVector, rotx, roty;
+      GLfloat blue[] = {0.0, 0.0, 0.5, 0.5};
+      set2Dcolour(blue);
+
+      int playerSize = (6 * displayMap);
+      int dirMultiplier = 6;
+
+      getViewPosition(&xVal, &yVal, &zVal);
+      getViewOrientation(&xOrn, &yOrn, &zOrn);
+
+      rotx = (xOrn / 180.0 * 3.141592);
+      roty = (yOrn / 180.0 * 3.141592);
+
+      xVector = xVal = fabs(xVal);
+      zVector = zVal = fabs(zVal);
+
+      // xVector += sin(roty) * dirMultiplier;
+      // zVector -= cos(roty) * dirMultiplier;
+
+      // xVector = xVector - xVal;
+      // zVector = zVector - zVal;
+
+      xVal = round((xVal / 100) * mapWidth) + mapPadding;
+      zVal = round((zVal / 100) * mapHeight) + mapPadding;
+
+      // xVector = round((xVector / 100) * mapWidth) + mapPadding;
+      // zVector = round((zVector / 100) * mapHeight) + mapPadding;
+
+
+      draw2Dtriangle((xVal+(playerSize)), (zVal-(playerSize/2)), (xVal), (zVal+playerSize), (xVal-(playerSize)), (zVal-(playerSize/2)));
+    }
+
+    void drawHumans(int mapWidth, int mapHeight, int mapPadding) {
+      float xVal;
+      float zVal;
+      int humanSize = (3 * displayMap);
+      GLfloat green[] = {0.0, 0.5, 0.0, 0.5};
+      set2Dcolour(green);
+
+      for (int i = 0; i < HUMAN_NUMBER; i++) {
+        xVal = humans[i][0];
+        zVal = humans[i][2];
+
+        xVal = round((xVal / 100) * mapWidth) + mapPadding;
+        zVal = round((zVal / 100) * mapHeight) + mapPadding;
+
+        draw2Dbox((xVal-humanSize), (zVal+humanSize), (xVal+humanSize), (zVal-humanSize));
+
+      }
+
+    }
+
+    void drawTubes(int mapWidth, int mapHeight, int mapPadding) {
+      float xStart;
+      float yStart;
+      float zStart;
+      float xEnd;
+      float yEnd;
+      float zEnd;
+      GLfloat purple[] = {0.5, 0.0, 0.5, 0.5};
+      set2Dcolour(purple);
+
+      for (int i = 0; i < TUBE_COUNT; i++) {
+        if (tubeMovement[i] <=0) {
+          /* hide the tube */
+        }
+        else{
+          /* move the tube forward */
+          xStart = tubeData[i][0]; // sx;
+          zStart = tubeData[i][2]; // sz;
+          xEnd = tubeData[i][3]; // ex;
+          zEnd = tubeData[i][5]; // ez;
+
+          xStart = round((xStart / 100) * mapWidth) + mapPadding;
+          zStart = round((zStart / 100) * mapHeight) + mapPadding;
+          xEnd = round((xEnd / 100) * mapWidth) + mapPadding;
+          zEnd = round((zEnd / 100) * mapHeight) + mapPadding;
+
+
+          draw2Dline(xStart, zStart, xEnd, zEnd, (2 * displayMap));
+        }
+      }
+      // printf("\n");
+    }
+
+    void drawMap(int mapWidth, int mapHeight, int mapPadding) {
+      GLfloat black[] = {0.0, 0.0, 0.0, 0.5};
+      GLfloat yellow[] = {0.5, 0.7, 0.0, 0.5};
+
+      set2Dcolour(black);
+      draw2Dbox(mapPadding, (mapHeight+mapPadding), (mapWidth+mapPadding), mapPadding);
+
+      set2Dcolour(yellow);
+
+      draw2Dline((mapPadding-1), (mapPadding-1), (mapWidth+mapPadding+1), (mapPadding-1), MAP_BORDER_SIZE);
+      draw2Dline((mapWidth+mapPadding+1), (mapPadding-1), (mapWidth+mapPadding+1), (mapHeight+mapPadding+1), MAP_BORDER_SIZE);
+      draw2Dline((mapWidth+mapPadding+1), (mapHeight+mapPadding+1), (mapPadding-1), (mapHeight+mapPadding+1), MAP_BORDER_SIZE);
+      draw2Dline((mapPadding-1), (mapHeight+mapPadding+1), (mapPadding-1), (mapPadding-1), MAP_BORDER_SIZE);
+    }
+
+
+    /******* draw2D() *******/
+    /* draws 2D shapes on screen */
+    /* use the following functions: 			*/
+    /*	draw2Dline(int, int, int, int, int);		*/
+    /*	draw2Dbox(int, int, int, int);			*/
+    /*	draw2Dtriangle(int, int, int, int, int, int);	*/
+    /*	set2Dcolour(float []); 				*/
+    /* colour must be set before other functions are called	*/
+    void draw2D() {
+
+      int mapWidth = 200;
+      int mapHeight = 200;
+      int reductionFactor = 5;
+      int mapPadding = 1;
+
+      if (testWorld) {
+        /* draw some sample 2d shapes */
+        if (displayMap == 1) {
+          GLfloat green[] = {0.0, 0.5, 0.0, 0.5};
+          set2Dcolour(green);
+          draw2Dline(0, 0, 500, 500, 15);
+          draw2Dtriangle(0, 0, 200, 200, 0, 200);
+
+          GLfloat black[] = {0.0, 0.0, 0.0, 0.5};
+          set2Dcolour(black);
+          draw2Dbox(500, 380, 524, 388);
+        }
+      } else {
+
+        GLfloat green[] = {0.0, 0.5, 0.0, 0.5};
+        GLfloat red[] = {0.5, 0.0, 0.0, 0.5};
+        GLfloat black[] = {0.0, 0.0, 0.0, 0.5};
+
+        // set2Dcolour(green);
+        // draw2Dline(0, 0, 500, 500, 15);
+
+        if (displayMap == 0) {
+          /* no map */
+        }
+        else {
+          if (displayMap == 1) {
+            mapPadding = 2;
+            mapWidth = (screenWidth / reductionFactor) - (mapPadding * 2);
+            mapHeight = (screenHeight / reductionFactor) - (mapPadding * 2);
+          }
+          else if (displayMap == 2) {
+            mapPadding = 25;
+            mapWidth = screenWidth - (mapPadding * 2);
+            mapHeight = screenHeight - (mapPadding * 2);
+
+          }
+          else{
+            printf("Error: The display map integer is unrecognized %d\n", displayMap);
+          }
+
+          // draw player
+          drawPlayer(mapWidth, mapHeight, mapPadding);
+          // draw beam
+          drawTubes(mapWidth, mapHeight, mapPadding);
+          drawHumans(mapWidth, mapHeight, mapPadding);
+          drawMap(mapWidth, mapHeight, mapPadding);
+        }
+
+      }
+    }
+
+    /*  updateHumans()
+        Description: Updates the Humans y position
     */
     void updateHumans() {
       int xVal;
@@ -317,37 +500,106 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       }
     }
 
+    bool tubeCollision(float xStart, float yStart, float zStart, float xEnd, float yEnd, float zEnd, int segments) {
+      int x, y, z;
 
-    /******* draw2D() *******/
-    /* draws 2D shapes on screen */
-    /* use the following functions: 			*/
-    /*	draw2Dline(int, int, int, int, int);		*/
-    /*	draw2Dbox(int, int, int, int);			*/
-    /*	draw2Dtriangle(int, int, int, int, int, int);	*/
-    /*	set2Dcolour(float []); 				*/
-    /* colour must be set before other functions are called	*/
-    void draw2D() {
+      xEnd = fabs(xEnd);
+      yEnd = fabs(yEnd);
+      zEnd = fabs(zEnd);
 
-      if (testWorld) {
-        /* draw some sample 2d shapes */
-        if (displayMap == 1) {
-          GLfloat green[] = {0.0, 0.5, 0.0, 0.5};
-          set2Dcolour(green);
-          draw2Dline(0, 0, 500, 500, 15);
-          draw2Dtriangle(0, 0, 200, 200, 0, 200);
+      float xDelta = (xEnd - xStart) / segments;
+      float yDelta = (yEnd - yStart) / segments;
+      float zDelta = (zEnd - zStart) / segments;
 
-          GLfloat black[] = {0.0, 0.0, 0.0, 0.5};
-          set2Dcolour(black);
-          draw2Dbox(500, 380, 524, 388);
+      // printf("Start: %f, %f, %f\n", xStart, yStart, zStart);
+      // printf("End: %f, %f, %f\n", xEnd, yEnd, zEnd);
+      // printf("Delta: %f, %f, %f\n", xDelta, yDelta, zDelta);
+
+
+      for (int i = 0; i < segments; i++) {
+
+        x = (int)floor(xStart);
+        y = (int)floor(yStart);
+        z = (int)floor(zStart);
+
+        // printf("checking: %d %d %d\n", x, y, z);
+        // printf("value: %d\n", world[x][y][z]);
+
+        if (world[x][y][z] > 0) {
+          if (world[x][y][z] == 1 || world[x][y][z] == 6 || world[x][y][z] == 7) {
+            printf("Lazer hit human\n");
+          }
+          else{
+            /* collision with the ground */
+          }
+
+          return true;
         }
-      } else {
 
-        /* your code goes here */
+        xStart = xStart + xDelta;
+        yStart = yStart + yDelta;
+        zStart = zStart + zDelta;
 
       }
 
+      return false;
     }
 
+    void updateTubes() {
+      float xStart, xEnd;
+      float yStart, yEnd;
+      float zStart, zEnd;
+      float xVector;
+      float yVector;
+      float zVector;
+      float vectorMultiplier = 0.1;
+
+      for (int i = 0; i < TUBE_COUNT; i++) {
+        // printf("%d ", tubeMovement[i]);
+        if (tubeMovement[i] <=0) {
+          /* hide the tube */
+          hideTube(i);
+          tubeHit[i] = 0;
+        }
+        else{
+          /* move the tube forward */
+          xStart = tubeData[i][0]; // sx;
+          yStart = tubeData[i][1]; // sy;
+          zStart = tubeData[i][2]; // sz;
+          xVector = tubeData[i][3] - xStart; // ex;
+          yVector = tubeData[i][4] - yStart; // ey;
+          zVector = tubeData[i][5] - zStart; // ez;
+
+          xStart = xStart + (xVector * vectorMultiplier);
+          yStart = yStart + (yVector * vectorMultiplier);
+          zStart = zStart + (zVector * vectorMultiplier);
+
+          xEnd = xStart + xVector;
+          yEnd = yStart + yVector;
+          zEnd = zStart + zVector;
+
+          // do collision checking
+          if (tubeHit[i] == 0) {
+            if (tubeCollision((xEnd-(xVector * vectorMultiplier)), (yEnd-(yVector * vectorMultiplier)), (zEnd-(zVector * vectorMultiplier)), xEnd, yEnd, zEnd, SEGMENTS)) {
+              // printf("TUBE COLLISION: %d\n", i);
+              tubeHit[i] = 1;
+            }
+            else{
+              // updates the new tube position
+              tubeData[i][0] = xStart;
+              tubeData[i][1] = yStart;
+              tubeData[i][2] = zStart;
+              tubeData[i][3] = xStart + xVector;
+              tubeData[i][4] = yStart + yVector;
+              tubeData[i][5] = zStart + zVector;
+            }
+          }
+
+          tubeMovement[i]--;
+        }
+      }
+      // printf("\n");
+    }
 
     /*** update() ***/
     /* background process, it is called when there are no other events */
@@ -434,84 +686,104 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
       } else {
 
-        static float acceleration = 1;
-        static float lastX, lastY, lastZ;
-        static float distX, distY, distZ;
         static int gravityTick = 0;
+        static bool isAccelerating = false;
         double updateTick = 0.08;
         float newX, newY, newZ;
         float oldX, oldY, oldZ;
-        float accelerationMax = 4;
-        float decelerationFactor = 0.85;
-        float stoppingFactor = 0.004;
+        float accelerationMax = 2;
+        float accelerationFactor = 0.01;
+        float decelerationFactor = 0.97;
+        float stoppingFactor = 0.003;
 
         newTime = clock();
 
         double time_taken = ((double)(newTime-oldTime))/CLOCKS_PER_SEC;
+        updateTubes();
+
+        getViewPosition(&newX, &newY, &newZ);
+        getOldViewPosition(&oldX, &oldY, &oldZ);
 
         if (time_taken > updateTick) {
-          // every 9 ticks the system will update the humans position.
-          if (gravityTick == 9) {
+          // every couple ticks the system will update the humans position.
+          if (gravityTick == 2) {
             gravityTick = 0;
             updateHumans();
           }
           gravityTick++;
-
-
           oldTime = newTime;
-          getViewPosition(&newX, &newY, &newZ);
-          getOldViewPosition(&oldX, &oldY, &oldZ);
 
-          // if oldPositions equal the last position moved to then the player isnt pressing any buttons
-          if (oldX == lastX && oldY == lastY && oldZ == lastZ) {
-            // acceleration is once again set to one
-            acceleration = 1;
+          if (keyboardPressed) {
+            // printf("KeyPress\n");
 
-            // the last distance that the player moved is reduced by the deceleration factor
-            distX = distX * decelerationFactor;
-            distY = distY * decelerationFactor;
-            distZ = distZ * decelerationFactor;
-
-            // if it is still moving in a significatly viewable distance then it will update the view position
-            if (distX > stoppingFactor || distY > stoppingFactor || distZ > stoppingFactor) {
-              lastX = newX;
-              lastY = newY;
-              lastZ = newZ;
-
-              newX = newX + distX;
-              newY = newY + distY;
-              newZ = newZ + distZ;
-
-              setOldViewPosition(lastX, lastY, lastZ);
-              setViewPosition(newX, newY, newZ);
-              collisionResponse();
-            }
+            toggleKeyboardPress();
+            isAccelerating = true;
 
           }
           else {
-            // player us pressing button
-
-            lastX = oldX;
-            lastY = oldY;
-            lastZ = oldZ;
-
-            // updates the distance travelled for the new viewpoint
-            distX = (newX - oldX) * acceleration;
-            distY = (newY - oldY) * acceleration;
-            distZ = (newZ - oldZ) * acceleration;
-
-            newX = oldX + distX;
-            newY = oldY + distY;
-            newZ = oldZ + distZ;
-
-            setViewPosition(newX, newY, newZ);
-
-            if (acceleration < accelerationMax) {
-              acceleration = acceleration + 0.08;
+            // printf("No Key\n");
+            isAccelerating = false;
+            if (acceleration > 1) {
+              distX = (newX - oldX) * decelerationFactor;
+              distY = (newY - oldY) * decelerationFactor;
+              distZ = (newZ - oldZ) * decelerationFactor;
+              acceleration = 1;
             }
           }
         }
 
+        /* outside the update tick */
+
+        if (isAccelerating) {
+          if (acceleration < accelerationMax) {
+            acceleration = acceleration + accelerationFactor;
+          }
+          // printf("Moving\n");
+          distX = (newX - oldX);
+          distY = (newY - oldY);
+          distZ = (newZ - oldZ);
+
+          oldX = newX;
+          oldY = newY;
+          oldZ = newZ;
+
+          newX = newX + distX;
+          newY = newY + distY;
+          newZ = newZ + distZ;
+
+          setOldViewPosition(oldX, oldY, oldZ);
+          setViewPosition(newX, newY, newZ);
+          collisionResponse();
+
+        }
+        else {
+          // if it is still moving in a significatly viewable distance then it will update the view position
+          if (fabs(distX) > stoppingFactor || fabs(distY) > stoppingFactor || fabs(distZ) > stoppingFactor) {
+            // printf("Deccelerating\n");
+            distX = (newX - oldX) * decelerationFactor;
+            distY = (newY - oldY) * decelerationFactor;
+            distZ = (newZ - oldZ) * decelerationFactor;
+
+            oldX = newX;
+            oldY = newY;
+            oldZ = newZ;
+
+            newX = newX + distX;
+            newY = newY + distY;
+            newZ = newZ + distZ;
+
+            setOldViewPosition(oldX, oldY, oldZ);
+            setViewPosition(newX, newY, newZ);
+            collisionResponse();
+          }
+          else {
+            // printf("Stopped\n");
+            distX = 0;
+            distY = 0;
+            distZ = 0;
+          }
+        }
+        // printf("Accel: %f\tDist: %f %f %f\n", acceleration, distX, distY, distZ);
       }
     }
 
@@ -522,6 +794,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
     /* -x,y are the screen coordinates when the mouse is pressed or */
     /*  released */
     void mouse(int button, int state, int x, int y) {
+      static int beamNumber = 0;
       float xStart, yStart, zStart;
       float xEnd, yEnd, zEnd;
       float xOrn, yOrn, zOrn;
@@ -533,13 +806,6 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
           // printf("up - ");
           getViewPosition(&xStart, &yStart, &zStart);
           getViewOrientation(&xOrn, &yOrn, &zOrn);
-          //
-          // while (xOrn > 360) {
-          //   xOrn = xOrn - 360;
-          // }
-          // while (yOrn > 360) {
-          //   yOrn = yOrn - 360;
-          // }
 
           rotx = (xOrn / 180.0 * 3.141592);
           roty = (yOrn / 180.0 * 3.141592);
@@ -547,31 +813,30 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
           xEnd = xStart = fabs(xStart);
           yEnd = yStart = fabs(yStart);
           zEnd = zStart = fabs(zStart);
-          xEnd += sin(roty) * BEAM_SIZE;
-          yEnd -= sin(rotx) * BEAM_SIZE;
-          zEnd -= cos(roty) * BEAM_SIZE;
+          xEnd += sin(roty) * TUBE_SIZE;
+          yEnd -= sin(rotx) * TUBE_SIZE;
+          zEnd -= cos(roty) * TUBE_SIZE;
 
-          printf("Start: %f, %f, %f\n", xStart, yStart, zStart);
-          printf("End: %f, %f, %f\n", xEnd, yEnd, zEnd);
-          printf("Orn: %f, %f\n", xOrn, yOrn);
+          // printf("Start: %f, %f, %f\n", xStart, yStart, zStart);
+          // printf("End: %f, %f, %f\n", xEnd, yEnd, zEnd);
+          // printf("Orn: %f, %f\n", xOrn, yOrn);
 
-          createTube(1, xStart, yStart, zStart, xEnd, yEnd, zEnd, 6);
+          if (tubeCollision(xStart, yStart, zStart, xEnd, yEnd, zEnd, (SEGMENTS*7))) {
+            printf("Can't fire lazer. Too close to block.\n");
+            /* tube collision has occured so no ray is set */
+          }
+          else{
+            // once it gets to the tube maximum it begins dranwing at the beginning of the array
+            if (beamNumber >= TUBE_COUNT) {
+              beamNumber = 0;
+            }
 
+            createTube(beamNumber, xStart, yStart, zStart, xEnd, yEnd, zEnd, 6);
+            tubeMovement[beamNumber] = TUBE_LIFE; //sets moves the beam can make
+            beamNumber = beamNumber + 1;
+          }
         }
-        else{
-          // printf("down - ");
-
-        }
       }
-
-      else if (button == GLUT_MIDDLE_BUTTON){
-        // printf("middle button - ");
-
-      }
-      else{
-        // printf("right button - ");
-      }
-
     }
 
 
@@ -651,7 +916,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         int maxY = 0;
         int maxX = 0;
         int maxZ = 0;
-        int reductionFactor = 20;
+        int reductionFactor = 45;
         bool addingWord = false;
         int charCount= 0;
         int numberCount= 0;
@@ -729,6 +994,8 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         initializeHumans();
       }
 
+      setViewPosition(-50,-20,-50);
+      // setOldViewPosition(-51,-20,-52);
 
       /* starts the graphics processing loop */
       /* code after this will not run until the program exits */

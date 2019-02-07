@@ -22,6 +22,10 @@ extern void buildDisplayList();
 extern void mouse(int, int, int, int);
 extern void draw2D();
 
+// Kevin's Changes
+extern float acceleration;
+float keyboardPressed = 0;
+float velocity = 0.1;
 
 	/* flags used to control the appearance of the image */
 int lineDrawing = 0;	// draw polygons as solid or lines
@@ -110,7 +114,15 @@ void  set2Dcolour(float []);
 
 /***************/
 
+// void setLastViewPosition(){
+//   lastX = oldvpx;
+//   lastY = oldvpy;
+//   lastZ = oldvpz;
+// }
 
+void toggleKeyboardPress(){
+  keyboardPressed = !keyboardPressed;
+}
 
 	/* player control functions */
 	/* set all player location, rotation, and visibility values to zero */
@@ -307,6 +319,7 @@ void setOldViewPosition(float x, float y, float z) {
    oldvpy = y;
    oldvpz = z;
 }
+
 
 	/* sets the current orientation of the viewpoint */
 void setViewOrientation(float xaxis, float yaxis, float zaxis) {
@@ -729,51 +742,55 @@ static int lighton = 1;
          glutPostRedisplay();
          break;
       case 'w':		// forward motion
+         keyboardPressed = 1;
          oldvpx = vpx;
          oldvpy = vpy;
          oldvpz = vpz;
          rotx = (mvx / 180.0 * 3.141592);
          roty = (mvy / 180.0 * 3.141592);
-         vpx -= sin(roty) * 0.3;
+         vpx -= sin(roty) * velocity * acceleration;
 		// turn off y motion so you can't fly
          if (flycontrol == 1)
-            vpy += sin(rotx) * 0.3;
-         vpz += cos(roty) * 0.3;
+            vpy += sin(rotx) * velocity * acceleration;
+         vpz += cos(roty) * velocity * acceleration;
 	        collisionResponse();
          glutPostRedisplay();
          break;
       case 's':		// backward motion
+         keyboardPressed = 1;
          oldvpx = vpx;
          oldvpy = vpy;
          oldvpz = vpz;
          rotx = (mvx / 180.0 * 3.141592);
          roty = (mvy / 180.0 * 3.141592);
-         vpx += sin(roty) * 0.3;
+         vpx += sin(roty) * velocity * acceleration;
 		// turn off y motion so you can't fly
          if (flycontrol == 1)
-            vpy -= sin(rotx) * 0.3;
-         vpz -= cos(roty) * 0.3;
-	 collisionResponse();
+            vpy -= sin(rotx) * velocity * acceleration;
+         vpz -= cos(roty) * velocity * acceleration;
+	       collisionResponse();
          glutPostRedisplay();
          break;
       case 'a':		// strafe left motion
+         keyboardPressed = 1;
          oldvpx = vpx;
          oldvpy = vpy;
          oldvpz = vpz;
          roty = (mvy / 180.0 * 3.141592);
-         vpx += cos(roty) * 0.3;
-         vpz += sin(roty) * 0.3;
-	 collisionResponse();
+         vpx += cos(roty) * velocity * acceleration;
+         vpz += sin(roty) * velocity * acceleration;
+	       collisionResponse();
          glutPostRedisplay();
          break;
       case 'd':		// strafe right motion
+         keyboardPressed = 1;
          oldvpx = vpx;
          oldvpy = vpy;
          oldvpz = vpz;
          roty = (mvy / 180.0 * 3.141592);
-         vpx -= cos(roty) * 0.3;
-         vpz -= sin(roty) * 0.3;
-	 collisionResponse();
+         vpx -= cos(roty) * velocity * acceleration;
+         vpz -= sin(roty) * velocity * acceleration;
+	       collisionResponse();
          glutPostRedisplay();
          break;
       case 'f':		// toggle flying controls
