@@ -27,18 +27,36 @@ typedef int bool;
 #define true 1
 #define false 0
 #define HUMAN_NUMBER 4
+#define ALIEN_NUMBER 2
+#define ALIEN_BODY_COLOR 1
+#define ALIEN_CLAW_COLOR 4
+#define HUMAN_BODY_COLOR 6
+#define HUMAN_HEAD_COLOR 7
+#define ALIEN_NUMBER 2
 #define TUBE_SIZE 3
 #define TUBE_LIFE 70
 #define SEGMENTS 15
 #define MAP_BORDER_SIZE 2
 
+typedef struct Alien {
+  float x;
+  float y;
+  float z;
+  float xDir;
+  float yDir;
+  float zDir;
+  int human;
+  int state;
+} Alien;
 
 clock_t newTime, oldTime;
-int humans[HUMAN_NUMBER][3];
+int humans[HUMAN_NUMBER][4];
+Alien alienList[ALIEN_NUMBER];
 int tubeMovement[TUBE_COUNT];
 int tubeHit[TUBE_COUNT];
 float acceleration = 1;
 float distX=0, distY=0, distZ=0;
+
 
 void goBack(float x, float y, float z);
 void optimizeGround(int groundArray[100][100]);
@@ -275,34 +293,222 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       }
     }
 
+    int checkForAlien(int xVal, int yVal, int zVal) {
+      int xCheck, yCheck, zCheck;
+      int searchRadius = 8;
+      int minRange = searchRadius * -1;
+      int maxRange = searchRadius + 1;
 
-    void initializeHumans() {
+
+      for (int i = 0; i < ALIEN_NUMBER; i++) {
+        alienList[i]
+      }
+
+      for (int i = minRange; i < maxRange; i++) {
+        xCheck = xVal + i;
+
+        if (xCheck < 0 || xCheck > 99) {
+          continue;
+        }
+
+        for (int j = minRange; j < maxRange; j++) {
+          zCheck = zVal + i;
+          if (zCheck < 0 || zCheck > 99) {
+            continue;
+          }
+
+          for (int k = 0; k < HUMAN_NUMBER; k++) {
+            // check if the spot has a human in it independent of y value
+            if (humans[k][0] == xCheck && humans[k][2] == zCheck) {
+              return k; //returns humans number
+            }
+          }
+        }
+      }
+
+      return -1;
+    }
+
+    int checkForHuman(int xVal, int yVal, int zVal) {
+      int xCheck, yCheck, zCheck;
+      int searchRadius = 8;
+      int minRange = searchRadius * -1;
+      int maxRange = searchRadius + 1;
+
+
+      for (int i = minRange; i < maxRange; i++) {
+        xCheck = xVal + i;
+
+        if (xCheck < 0 || xCheck > 99) {
+          continue;
+        }
+
+        for (int j = minRange; j < maxRange; j++) {
+          zCheck = zVal + i;
+          if (zCheck < 0 || zCheck > 99) {
+            continue;
+          }
+
+          for (int k = 0; k < HUMAN_NUMBER; k++) {
+            // check if the spot has a human in it independent of y value
+            if (humans[k][0] == xCheck && humans[k][2] == zCheck) {
+              return k; //returns humans number
+            }
+          }
+        }
+      }
+
+      return -1;
+    }
+
+    void eraseAlien(int xVal, int yVal, int zVal) {
+
+      for (int level = 0; level < 4; level++) {
+        for (int i = 2; i > -3; i--) {
+          for (int j = 2; j > -3; j--) {
+
+            if (level == 0) {
+              if ((abs(i)==2) && (abs(j)==2)) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3) // checks if there is a floor block
+                world[xVal+i][yVal+level][zVal+j] = 0;
+              }
+            }
+            else if (level == 1) {
+              if (((abs(i)==1) && (abs(j)==1)) || ((abs(i)==2) && (abs(j)==2))) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = 0;
+              }
+            }
+            else if (level == 2) {
+              if ( !(((abs(i)==2) && (j==0)) || ((abs(j)==2) && (i==0))) ) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = 0;
+              }
+            }
+            else {
+              if (!((abs(i)==2) && (abs(j)==2))) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = 0;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    /*  renderAlien()
+        Description: Draws the alien model dependent on its location (position is the centre of the alien at the bottom.)
+    */
+    void renderAlien(int xVal, int yVal, int zVal) {
+
+      for (int level = 0; level < 4; level++) {
+        for (int i = 2; i > -3; i--) {
+          for (int j = 2; j > -3; j--) {
+
+            if (level == 0) {
+              if ((abs(i)==2) && (abs(j)==2)) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3) // checks if there is a floor block
+                world[xVal+i][yVal+level][zVal+j] = ALIEN_CLAW_COLOR;
+              }
+            }
+            else if (level == 1) {
+              if ((abs(i)==1) && (abs(j)==1)) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = ALIEN_BODY_COLOR;
+              }
+              if ((abs(i)==2) && (abs(j)==2)) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = ALIEN_CLAW_COLOR;
+              }
+            }
+            else if (level == 2) {
+              if ( !(((abs(i)==2) && (j==0)) || ((abs(j)==2) && (i==0))) ) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = ALIEN_BODY_COLOR;
+              }
+            }
+            else {
+              if (!((abs(i)==2) && (abs(j)==2))) {
+                if (world[xVal+i][yVal+level][zVal+j] != 3)
+                world[xVal+i][yVal+level][zVal+j] = ALIEN_BODY_COLOR;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    void renderHuman(int xVal, int yVal, int zVal, int direction) {
+
+      if (direction > 0) {
+        world[xVal][yVal][zVal] = 0;
+      }
+      else {
+        world[xVal][yVal+2][zVal] = 0;
+      }
+
+      // adds direction to the yvalue
+      yVal = yVal + direction;
+
+      world[xVal][yVal][zVal] = HUMAN_BODY_COLOR;
+      world[xVal][yVal+1][zVal] = HUMAN_BODY_COLOR;
+      world[xVal][yVal+2][zVal] = HUMAN_HEAD_COLOR;
+
+    }
+
+    void initializeEntities() {
         time_t t;
         srand((unsigned) time(&t));
-        int xVal;
-        int yVal;
-        int zVal;
+        int alienMax = 45;
+        int alienMin = 35;
+        int humanMax = 28;
+        int humanMin = 15;
+        int xVal, yVal, zVal;
+        float maxDir = 1.5;
+        float minDir = 0.5;
 
         for (int i = 0; i < HUMAN_NUMBER; i++) {
           xVal = ((rand() % (95 - 5 + 1)) + 5);
-          yVal = ((rand() % (47 - 30 + 1)) + 30);
+          yVal = ((rand() % (humanMax - humanMin + 1)) + humanMin);
           zVal = ((rand() % (95 - 5 + 1)) + 5);
           humans[i][0] = xVal;
           humans[i][1] = yVal;
           humans[i][2] = zVal;
+          humans[i][3] = -1; // alien number for when human is captured
 
           // printf("Val %d [%d, %d] = %d\n", i, xVal, zVal, yVal);
 
-          world[xVal][yVal][zVal] = 7;
-          world[xVal][yVal+1][zVal] = 6;
-          world[xVal][yVal+2][zVal] = 1;
+          world[xVal][yVal][zVal] = HUMAN_BODY_COLOR;
+          world[xVal][yVal+1][zVal] = HUMAN_BODY_COLOR;
+          world[xVal][yVal+2][zVal] = HUMAN_HEAD_COLOR;
 
+        }
+
+        // malloc (3 * sizeof *Alien)
+
+        for (int i = 0; i < ALIEN_NUMBER; i++) {
+          xVal = ((rand() % (95 - 5 + 1)) + 5);
+          yVal = ((rand() % (alienMax - alienMin + 1)) + alienMin);
+          zVal = ((rand() % (95 - 5 + 1)) + 5);
+
+          alienList[i].x = xVal;
+          alienList[i].y = yVal;
+          alienList[i].z = zVal;
+          alienList[i].xDir = (((float)rand()/(float)(RAND_MAX)) * (maxDir - minDir)) + minDir;
+          alienList[i].yDir = 0;
+          alienList[i].zDir = (((float)rand()/(float)(RAND_MAX)) * (maxDir - minDir)) + minDir;
+          // alienList[i].zDir = ((rand() % (95 - 5 + 1)) + 5);
+
+          printf("%f %f\n", alienList[i].xDir, alienList[i].zDir);
+
+          alienList[i].human = -1;
+          alienList[i].state = 0;
+
+          renderAlien(xVal, yVal, zVal);
         }
     }
 
-
-
-    void drawPlayer(int mapWidth, int mapHeight, int mapPadding) {
+    void drawPlayer(int mapWidth, int mapHeight, int widthPadding, int heightPadding) {
       float xVal, yVal, zVal, xOrn, yOrn, zOrn;
       float xVector, zVector, rotx, roty;
       GLfloat blue[] = {0.0, 0.0, 0.5, 0.5};
@@ -326,17 +532,17 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       // xVector = xVector - xVal;
       // zVector = zVector - zVal;
 
-      xVal = round((xVal / 100) * mapWidth) + mapPadding;
-      zVal = round((zVal / 100) * mapHeight) + mapPadding;
+      xVal = round((xVal / 100) * mapWidth) + widthPadding;
+      zVal = round((zVal / 100) * mapHeight) + heightPadding;
 
-      // xVector = round((xVector / 100) * mapWidth) + mapPadding;
-      // zVector = round((zVector / 100) * mapHeight) + mapPadding;
+      // xVector = round((xVector / 100) * mapWidth) + widthPadding;
+      // zVector = round((zVector / 100) * mapHeight) + widthPadding;
 
 
       draw2Dtriangle((xVal+(playerSize)), (zVal-(playerSize/2)), (xVal), (zVal+playerSize), (xVal-(playerSize)), (zVal-(playerSize/2)));
     }
 
-    void drawHumans(int mapWidth, int mapHeight, int mapPadding) {
+    void drawHumans(int mapWidth, int mapHeight, int widthPadding, int heightPadding) {
       float xVal;
       float zVal;
       int humanSize = (3 * displayMap);
@@ -347,8 +553,8 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         xVal = humans[i][0];
         zVal = humans[i][2];
 
-        xVal = round((xVal / 100) * mapWidth) + mapPadding;
-        zVal = round((zVal / 100) * mapHeight) + mapPadding;
+        xVal = round((xVal / 100) * mapWidth) + widthPadding;
+        zVal = round((zVal / 100) * mapHeight) + heightPadding;
 
         draw2Dbox((xVal-humanSize), (zVal+humanSize), (xVal+humanSize), (zVal-humanSize));
 
@@ -356,7 +562,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
     }
 
-    void drawTubes(int mapWidth, int mapHeight, int mapPadding) {
+    void drawTubes(int mapWidth, int mapHeight, int widthPadding, int heightPadding) {
       float xStart;
       float yStart;
       float zStart;
@@ -377,10 +583,10 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
           xEnd = tubeData[i][3]; // ex;
           zEnd = tubeData[i][5]; // ez;
 
-          xStart = round((xStart / 100) * mapWidth) + mapPadding;
-          zStart = round((zStart / 100) * mapHeight) + mapPadding;
-          xEnd = round((xEnd / 100) * mapWidth) + mapPadding;
-          zEnd = round((zEnd / 100) * mapHeight) + mapPadding;
+          xStart = round((xStart / 100) * mapWidth) + widthPadding;
+          zStart = round((zStart / 100) * mapHeight) + heightPadding;
+          xEnd = round((xEnd / 100) * mapWidth) + widthPadding;
+          zEnd = round((zEnd / 100) * mapHeight) + heightPadding;
 
 
           draw2Dline(xStart, zStart, xEnd, zEnd, (2 * displayMap));
@@ -389,21 +595,20 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       // printf("\n");
     }
 
-    void drawMap(int mapWidth, int mapHeight, int mapPadding) {
+    void drawMap(int mapWidth, int mapHeight, int widthPadding, int heightPadding) {
       GLfloat black[] = {0.0, 0.0, 0.0, 0.5};
       GLfloat yellow[] = {0.5, 0.7, 0.0, 0.5};
 
       set2Dcolour(black);
-      draw2Dbox(mapPadding, (mapHeight+mapPadding), (mapWidth+mapPadding), mapPadding);
+      draw2Dbox(widthPadding, heightPadding, (mapWidth+widthPadding), (mapHeight+heightPadding));
 
       set2Dcolour(yellow);
 
-      draw2Dline((mapPadding-1), (mapPadding-1), (mapWidth+mapPadding+1), (mapPadding-1), MAP_BORDER_SIZE);
-      draw2Dline((mapWidth+mapPadding+1), (mapPadding-1), (mapWidth+mapPadding+1), (mapHeight+mapPadding+1), MAP_BORDER_SIZE);
-      draw2Dline((mapWidth+mapPadding+1), (mapHeight+mapPadding+1), (mapPadding-1), (mapHeight+mapPadding+1), MAP_BORDER_SIZE);
-      draw2Dline((mapPadding-1), (mapHeight+mapPadding+1), (mapPadding-1), (mapPadding-1), MAP_BORDER_SIZE);
+      draw2Dline((widthPadding-1), (heightPadding-1), (mapWidth+widthPadding+1), (heightPadding-1), MAP_BORDER_SIZE);
+      draw2Dline((mapWidth+widthPadding+1), (heightPadding-1), (mapWidth+widthPadding+1), (mapHeight+heightPadding+1), MAP_BORDER_SIZE);
+      draw2Dline((mapWidth+widthPadding+1), (mapHeight+heightPadding+1), (widthPadding-1), (mapHeight+heightPadding+1), MAP_BORDER_SIZE);
+      draw2Dline((widthPadding-1), (mapHeight+heightPadding+1), (widthPadding-1), (heightPadding-1), MAP_BORDER_SIZE);
     }
-
 
     /******* draw2D() *******/
     /* draws 2D shapes on screen */
@@ -418,7 +623,8 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       int mapWidth = 200;
       int mapHeight = 200;
       int reductionFactor = 5;
-      int mapPadding = 1;
+      int widthPadding = 0;
+      int heightPadding = 0;
 
       if (testWorld) {
         /* draw some sample 2d shapes */
@@ -446,27 +652,188 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         }
         else {
           if (displayMap == 1) {
-            mapPadding = 2;
-            mapWidth = (screenWidth / reductionFactor) - (mapPadding * 2);
-            mapHeight = (screenHeight / reductionFactor) - (mapPadding * 2);
+            heightPadding = 2;
+            widthPadding = 2;
+            if (screenWidth <= screenHeight) {
+              mapWidth = (screenWidth / reductionFactor) - (widthPadding * 2);
+              mapHeight = mapWidth;
+
+              // heightPadding = (screenHeight - screenWidth)/2;
+
+              // if (heightPadding<2) {
+              //   heightPadding = 2;
+              // }
+            }
+            else{
+              mapHeight = (screenHeight / reductionFactor) - (heightPadding * 2);
+              mapWidth = mapHeight;
+
+              // widthPadding = (screenWidth - screenHeight)/2;
+
+              // if (widthPadding<2) {
+              //   widthPadding = 2;
+              // }
+            }
+            widthPadding = screenWidth - (mapWidth+ widthPadding*2);
+            heightPadding = screenHeight - (mapHeight + heightPadding*2);
           }
           else if (displayMap == 2) {
-            mapPadding = 25;
-            mapWidth = screenWidth - (mapPadding * 2);
-            mapHeight = screenHeight - (mapPadding * 2);
+            if (screenWidth <= screenHeight) {
+              widthPadding = 25;
+              mapWidth = screenWidth - (widthPadding * 2);
+              mapHeight = mapWidth;
 
+              heightPadding = (screenHeight - screenWidth)/2;
+
+              if (heightPadding<25) {
+                heightPadding = 25;
+              }
+            }
+            else{
+              heightPadding = 25;
+              mapHeight = screenHeight - (heightPadding * 2);
+              mapWidth = mapHeight;
+
+              widthPadding = (screenWidth - screenHeight)/2;
+
+              if (widthPadding<25) {
+                widthPadding = 25;
+              }
+            }
           }
           else{
             printf("Error: The display map integer is unrecognized %d\n", displayMap);
           }
 
           // draw player
-          drawPlayer(mapWidth, mapHeight, mapPadding);
+          drawPlayer(mapWidth, mapHeight, widthPadding, heightPadding);
           // draw beam
-          drawTubes(mapWidth, mapHeight, mapPadding);
-          drawHumans(mapWidth, mapHeight, mapPadding);
-          drawMap(mapWidth, mapHeight, mapPadding);
+          drawTubes(mapWidth, mapHeight, widthPadding, heightPadding);
+          drawHumans(mapWidth, mapHeight, widthPadding, heightPadding);
+          drawMap(mapWidth, mapHeight, widthPadding, heightPadding);
         }
+
+      }
+    }
+
+    /*  updateAliens()
+        Description: Updates the Aliens movement
+    */
+    void updateAliens() {
+      int xVal, yVal, zVal, searchHuman;
+      float newX, newY, newZ;
+      float xDir, yDir, zDir;
+
+      for (int i = 0; i < ALIEN_NUMBER; i++) {
+        if (alienList[i].state == 4) continue; // if state is 4 then the alien should not be drawn
+
+        xDir = alienList[i].xDir;
+        yDir = alienList[i].yDir;
+        zDir = alienList[i].zDir;
+
+        // sets int values to be erase the previously drawn alien
+        xVal = (int) (alienList[i].x);
+        yVal = (int) (alienList[i].y);
+        zVal = (int) (alienList[i].z);
+
+        eraseAlien(xVal,yVal,zVal);
+
+        // updates position
+        newX = alienList[i].x + xDir;
+        newY = alienList[i].y + yDir;
+        newZ = alienList[i].z + zDir;
+
+        xVal = (int) (newX);
+        yVal = (int) (newY);
+        zVal = (int) (newZ);
+
+        // checks if it hits a wall in which case it switches the direction
+        if (xVal >=97 || xVal < 2) {
+          xDir = alienList[i].xDir = xDir * -1;
+          newX = alienList[i].x + xDir;
+          xVal = (int) (newX);
+        }
+        if (zVal >=97 || zVal < 2) {
+          zDir = alienList[i].zDir = zDir * -1;
+          newZ = alienList[i].z + zDir;
+          zVal = (int) (newZ);
+        }
+
+        // updates the alien struct
+        alienList[i].x = newX;
+        alienList[i].y = newY;
+        alienList[i].z = newZ;
+
+        // printf("alien # %d: %d %d %d\n", i, xVal, yVal, zVal);
+
+        renderAlien(xVal, yVal, zVal);
+
+        if(alienList[i].state == 0){ //state 0 is searching
+          searchHuman = checkForHuman(xVal, yVal, zVal);
+
+          if (searchHuman > -1) {
+            printf("Alien #%d  found Human\n", i);
+
+            alienList[i].human = searchHuman;
+            alienList[i].state = 1;
+          }
+        }
+
+        if(alienList[i].state == 1){ //state 1 is going towards human
+          int maxDirection = 0;
+          // set direction to the human
+          searchHuman = alienList[i].human;
+
+          xDir = humans[searchHuman][0] - newX;
+          yDir = (humans[searchHuman][1] + 2) - newY;
+          zDir = humans[searchHuman][2] - newZ;
+
+          if (fabs(xDir) > maxDirection) {
+            maxDirection = fabs(xDir);
+          }
+          if (fabs(yDir) > maxDirection) {
+            maxDirection = fabs(yDir);
+          }
+          if (fabs(zDir) > maxDirection) {
+            maxDirection = fabs(zDir);
+          }
+
+          alienList[i].xDir = xDir / maxDirection;
+          alienList[i].yDir = yDir / maxDirection;
+          alienList[i].zDir = zDir / maxDirection;
+
+          if (xVal == humans[searchHuman][0] && yVal == (humans[searchHuman][1] + 2) && zVal == humans[searchHuman][2]) {
+            /* code */
+            alienList[i].state = 2;
+
+            alienList[i].xDir = 0;
+            alienList[i].yDir = 1;
+            alienList[i].zDir = 0;
+            // change direction to up
+          }
+        }
+
+        if(alienList[i].state == 2){ //state 2 is taking the human up
+          searchHuman = alienList[i].human;
+          humans[searchHuman][3] = i;
+
+          if (yVal > (humans[searchHuman][1] - 2)) {
+              renderHuman(xVal,(yVal-2),zVal,1);
+              humans[searchHuman][1] += 1;
+          }
+          if (yVal >= 47) {
+            alienList[i].yDir = 0;
+            //disapear with human
+            alienList[i].state = 4;
+            eraseAlien(xVal,yVal,zVal);
+          }
+        }
+
+        if(alienList[i].state == 3){ //state 3 is human has been shot
+          alienList[i].human = -1;
+
+        }
+
 
       }
     }
@@ -484,18 +851,22 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         yVal = humans[i][1];
         zVal = humans[i][2];
 
-        if (world[xVal][yVal-1][zVal] == 0) {
-          world[xVal][yVal+2][zVal] = 0;
+        if (humans[i][3] <= -1) {
+          if (world[xVal][yVal-1][zVal] == 0) {
 
-          // decrements Y value
-          yVal--;
+            renderHuman(xVal,yVal,zVal,-1);
+            // world[xVal][yVal+2][zVal] = 0;
+            //
+            // // decrements Y value
+            // yVal--;
+            //
+            // world[xVal][yVal][zVal] = 7;
+            // world[xVal][yVal+1][zVal] = 6;
+            // world[xVal][yVal+2][zVal] = 1;
 
-          world[xVal][yVal][zVal] = 7;
-          world[xVal][yVal+1][zVal] = 6;
-          world[xVal][yVal+2][zVal] = 1;
-
-          // update humans Y location
-          humans[i][1] = yVal;
+            // update humans Y location
+            humans[i][1] -= 1;
+          }
         }
       }
     }
@@ -526,8 +897,11 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         // printf("value: %d\n", world[x][y][z]);
 
         if (world[x][y][z] > 0) {
-          if (world[x][y][z] == 1 || world[x][y][z] == 6 || world[x][y][z] == 7) {
+          if (world[x][y][z] == HUMAN_BODY_COLOR || world[x][y][z] == HUMAN_HEAD_COLOR) {
             printf("Lazer hit human\n");
+          }
+          else if (world[x][y][z] == ALIEN_BODY_COLOR || world[x][y][z] == ALIEN_CLAW_COLOR) {
+            printf("Lazer hit alien\n");
           }
           else{
             /* collision with the ground */
@@ -552,7 +926,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       float xVector;
       float yVector;
       float zVector;
-      float vectorMultiplier = 0.1;
+      float vectorMultiplier = 0.2;
 
       for (int i = 0; i < TUBE_COUNT; i++) {
         // printf("%d ", tubeMovement[i]);
@@ -584,7 +958,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
               // printf("TUBE COLLISION: %d\n", i);
               tubeHit[i] = 1;
             }
-            else{
+            // else{
               // updates the new tube position
               tubeData[i][0] = xStart;
               tubeData[i][1] = yStart;
@@ -592,7 +966,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
               tubeData[i][3] = xStart + xVector;
               tubeData[i][4] = yStart + yVector;
               tubeData[i][5] = zStart + zVector;
-            }
+            // }
           }
 
           tubeMovement[i]--;
@@ -691,8 +1065,8 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
         double updateTick = 0.08;
         float newX, newY, newZ;
         float oldX, oldY, oldZ;
-        float accelerationMax = 2;
-        float accelerationFactor = 0.01;
+        float accelerationMax = 3;
+        float accelerationFactor = 1.005;
         float decelerationFactor = 0.97;
         float stoppingFactor = 0.003;
 
@@ -706,6 +1080,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
         if (time_taken > updateTick) {
           // every couple ticks the system will update the humans position.
+          updateAliens();
           if (gravityTick == 2) {
             gravityTick = 0;
             updateHumans();
@@ -736,7 +1111,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
         if (isAccelerating) {
           if (acceleration < accelerationMax) {
-            acceleration = acceleration + accelerationFactor;
+            acceleration = acceleration * accelerationFactor;
           }
           // printf("Moving\n");
           distX = (newX - oldX);
@@ -799,6 +1174,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
       float xEnd, yEnd, zEnd;
       float xOrn, yOrn, zOrn;
       float rotx, roty;
+      float rotationWindow = 180.0;
 
       if (button == GLUT_LEFT_BUTTON){
         // printf("left button - ");
@@ -807,8 +1183,10 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
           getViewPosition(&xStart, &yStart, &zStart);
           getViewOrientation(&xOrn, &yOrn, &zOrn);
 
-          rotx = (xOrn / 180.0 * 3.141592);
-          roty = (yOrn / 180.0 * 3.141592);
+          // printf("Orn: %f, %f\n", xOrn, yOrn);
+
+          rotx = (xOrn / rotationWindow * 3.141592);
+          roty = (yOrn / rotationWindow * 3.141592);
 
           xEnd = xStart = fabs(xStart);
           yEnd = yStart = fabs(yStart);
@@ -819,7 +1197,6 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
           // printf("Start: %f, %f, %f\n", xStart, yStart, zStart);
           // printf("End: %f, %f, %f\n", xEnd, yEnd, zEnd);
-          // printf("Orn: %f, %f\n", xOrn, yOrn);
 
           if (tubeCollision(xStart, yStart, zStart, xEnd, yEnd, zEnd, (SEGMENTS*7))) {
             printf("Can't fire lazer. Too close to block.\n");
@@ -991,7 +1368,7 @@ extern void getUserColour(int, GLfloat *, GLfloat *, GLfloat *, GLfloat *, GLflo
 
         optimizeGround(groundArray);
 
-        initializeHumans();
+        initializeEntities();
       }
 
       setViewPosition(-50,-20,-50);
